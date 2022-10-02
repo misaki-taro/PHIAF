@@ -14,7 +14,7 @@ import scipy.sparse as sp
 def attention_3d_block(inputs):
     input_dim = int(inputs.shape[2])
     a = Permute((1, 2))(inputs)
-    a = Dense(32, activation='softmax')(a)
+    a = Dense(32, activation='softmax')(a) # 在channels层做了softmax
     a_probs = Permute((1, 2))(a)
     output_attention_mul = Multiply()([inputs, a_probs])
     return output_attention_mul
