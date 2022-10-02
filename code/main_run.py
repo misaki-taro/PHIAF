@@ -28,6 +28,7 @@ parser.add_argument('--neg-each-epoch', default=False, type=bool, help='Neg samp
 parser.add_argument('--out-channels', default=32, type=int, help='Out channels of Model')
 parser.add_argument('--batchsize', default=8, type=int, help='Batch size of training')
 parser.add_argument('--subdir', default='sub', type=str, help='Sub directory of results')
+parser.add_argument('--epochs', default=300, type=int, help='Epochs of training')
 
 inputs = parser.parse_args()
 
@@ -38,6 +39,7 @@ print('neg_each_epoch:                  {0}'.format(inputs.neg_each_epoch))
 print('out_channels:                    {0}'.format(inputs.out_channels))
 print('batchsize:                       {0}'.format(inputs.batchsize))
 print('subdir:                          {0}'.format(inputs.batchsize))
+print('epochs:                          {0}'.format(inputs.epochs))
 
 class AverageMeter(object):
     """Computes and stores the average and current value
@@ -139,6 +141,8 @@ def sample2image(X):
 result_all=[]
 pred_all=[]
 test_y_all=[]
+fold_result = []
+cur_fold = 1
 
 data1=pd.read_csv('../data/data_pos_neg.txt',header=None,sep=',')
 data1=data1[data1[2]==1]
@@ -147,9 +151,9 @@ skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=1)
 training=pd.read_csv('../data/data_pos_neg.txt',header=None,sep=',').values.tolist()
 training_tar = [tt[2] for tt in training]
 
-fold_result = []
 
-for train_index, test_index in skf.split(training, training_tar): 
+for train_index, test_index in skf.split(training, training_tar):
+     
     ###obtain data
     X_tra=[training[ii] for ii in train_index if training[ii][2] == 1]
     X_val=[training[ii] for ii in test_index]
@@ -173,7 +177,7 @@ for train_index, test_index in skf.split(training, training_tar):
         train_dataset = ImageDataset(torch.tensor(X_dna, dtype=torch.float32), torch.tensor(X_pro, dtype=torch.float32), torch.tensor(y_tra, dtype=torch.float32))
         train_loader = DataLoader(train_dataset, batch_size=inputs.batchsize, shuffle=True)
     
-    epochs = 300
+    epochs = inputs.epochs
     in_channels = 2
     out_channels = 32
     kernel_size = 3
@@ -190,6 +194,7 @@ for train_index, test_index in skf.split(training, training_tar):
     y_val = torch.tensor(y_val, dtype=torch.float, device=device)
     bm = BinaryMetric(y_val)
 
+    print('= = = = = = Fold {0} = = = = = ='.format(cur_fold))
     for epoch in range(1, 1+epochs):
         # Train
         model.train()
@@ -227,7 +232,7 @@ for train_index, test_index in skf.split(training, training_tar):
             recall = bm.recall(y_hat)
         
         # Tensorboard
-        with SummaryWriter('./PHIAF_out') as writer:
+        with SummaryWriter('./PHIAF_out/fold{0}'.format(cur_fold)) as writer:
             writer.add_scalars(
                 'Loss',
                 {
@@ -253,6 +258,8 @@ for train_index, test_index in skf.split(training, training_tar):
             format_print(print_dict)
             if(epoch == epochs):
                 fold_result.append(print_dict)
+    
+    cur_fold += 1
 
 cals = {}
 
